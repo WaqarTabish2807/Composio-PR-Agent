@@ -1,0 +1,5 @@
+composio-core
+anthropic
+fastapi
+uvicorn
+python-dotenv
