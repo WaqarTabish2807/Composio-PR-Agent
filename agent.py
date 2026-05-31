@@ -2,7 +2,7 @@ import os
 import sys
 import json
 from dotenv import load_dotenv
-from composio import Composio
+from composio import ComposioToolSet, App
 from anthropic import Anthropic
 
 # Load environment variables
@@ -25,17 +25,13 @@ def handle_pr_event(pr_data: dict):
         return
 
     print(f"\n[Agent] Starting agent loop for user: {user_email}")
-    composio = Composio(api_key=api_key)
+    composio_toolset = ComposioToolSet(api_key=api_key, entity_id=user_email)
     anthropic = Anthropic(api_key=anthropic_key)
 
     try:
         # Get tools from both toolkits
         print("[Agent] Fetching GITHUB and LINEAR tools from Composio...")
-        tools = composio.tools.get(
-            user_id=user_email,
-            toolkits=["GITHUB", "LINEAR"],
-            limit=30, # Fetch enough actions to support all tasks
-        )
+        tools = composio_toolset.get_action_schemas(apps=[App.GITHUB, App.LINEAR])
         print(f"[Agent] Retrieved {len(tools)} tools from Composio.")
     except Exception as e:
         print(f"[Agent] Error fetching tools from Composio: {e}")
@@ -96,25 +92,43 @@ def handle_pr_event(pr_data: dict):
             break
             
         print(f"[Agent] Claude triggered tool calls. Executing via Composio...")
-        try:
-            result = composio.provider.handle_tool_calls(
-                user_id=user_email,
-                response=response,
-            )
-            # Truncate response details in logs to keep clean console
-            result_preview = str(result)[:300] + "..." if len(str(result)) > 300 else str(result)
-            print(f"[Agent] Tool call execution result preview: {result_preview}")
-        except Exception as e:
-            print(f"[Agent] Error executing tools via Composio: {e}")
-            result = f"Error during tool execution: {str(e)}"
-
-        # Convert tool result to appropriate type (often string or dictionary containing output)
-        if not isinstance(result, str):
-            result = json.dumps(result)
-
-        # Append assistant response and tool execution result to message history
+        
+        # Parse tool uses
+        tool_uses = [block for block in response.content if block.type == "tool_use"]
+        
+        # We must append the assistant's response to messages first!
         messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": result})
+        
+        tool_results = []
+        for tool_use in tool_uses:
+            action_name = tool_use.name
+            arguments = tool_use.input
+            tool_use_id = tool_use.id
+            
+            print(f"[Agent] Executing tool {action_name}...")
+            try:
+                # Execute action via ComposioToolSet
+                output = composio_toolset.execute_action(
+                    action=action_name,
+                    params=arguments,
+                )
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id,
+                    "content": json.dumps(output)
+                })
+                print(f"[Agent] Tool call executed successfully.")
+            except Exception as e:
+                print(f"[Agent] Error executing tool: {e}")
+                tool_results.append({
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id,
+                    "content": f"Error executing tool: {str(e)}",
+                    "is_error": True
+                })
+
+        # Append the tool results to messages
+        messages.append({"role": "user", "content": tool_results})
         step += 1
 
 if __name__ == "__main__":

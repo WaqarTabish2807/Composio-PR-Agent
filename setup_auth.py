@@ -32,8 +32,8 @@ def main():
         # 1. Initiate GitHub OAuth
         print("\n[GitHub] Initiating OAuth connection...")
         github_request = composio.connected_accounts.initiate(
-            user_id=user_email,
-            auth_config_id=github_id,
+            integration_id=github_id,
+            entity_id=user_email,
         )
         print(f"[GitHub] Please open this URL in your browser to authorize GitHub:")
         print(f"👉 {github_request.redirect_url}\n")
@@ -41,8 +41,8 @@ def main():
         # 2. Initiate Linear OAuth
         print("[Linear] Initiating OAuth connection...")
         linear_request = composio.connected_accounts.initiate(
-            user_id=user_email,
-            auth_config_id=linear_id,
+            integration_id=linear_id,
+            entity_id=user_email,
         )
         print(f"[Linear] Please open this URL in your browser to authorize Linear:")
         print(f"👉 {linear_request.redirect_url}\n")

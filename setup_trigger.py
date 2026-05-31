@@ -34,26 +34,35 @@ def main():
     composio = Composio(api_key=api_key)
 
     try:
-        # Inspecting GITHUB_PULL_REQUEST_EVENT trigger details
-        print("Retrieving GITHUB_PULL_REQUEST_EVENT trigger metadata...")
-        trigger_type = composio.triggers.get_type("GITHUB_PULL_REQUEST_EVENT")
-        print(f"Trigger Name: {trigger_type.name}")
-        print(f"Required Configuration Fields: {list(trigger_type.config.keys()) if trigger_type.config else 'None'}")
+        # Find active connected accounts to retrieve the GITHUB connection ID
+        print("Retrieving connected accounts for the user...")
+        accounts = composio.connected_accounts.get(entity_ids=[user_email])
+        if not isinstance(accounts, list):
+            accounts = [accounts]
 
-        # Register the trigger
-        print(f"\nRegistering trigger GITHUB_PULL_REQUEST_EVENT for {owner}/{repo}...")
-        trigger = composio.triggers.create(
-            slug="GITHUB_PULL_REQUEST_EVENT",
-            user_id=user_email,
-            trigger_config={
+        # Find active GITHUB account
+        github_account = next((acc for acc in accounts if acc.appName.lower() == "github" and acc.status.lower() == "active"), None)
+        if not github_account:
+            print("ERROR: No active GITHUB connected account found for this user.")
+            print("Please run setup_auth.py first to establish the GitHub connection.")
+            sys.exit(1)
+
+        github_connected_account_id = github_account.id
+        print(f"Found active GitHub connected account: {github_connected_account_id}")
+
+        # Register/Enable the trigger
+        print(f"\nEnabling trigger GITHUB_PULL_REQUEST_EVENT for {owner}/{repo}...")
+        trigger = composio.triggers.enable(
+            name="GITHUB_PULL_REQUEST_EVENT",
+            connected_account_id=github_connected_account_id,
+            config={
                 "owner": owner,
                 "repo": repo,
             },
         )
-        print("\n✅ Trigger registered successfully!")
-        print(f"Trigger ID: {trigger.id}")
+        print("\n✅ Trigger enabled successfully!")
         print(f"Trigger Info: {trigger}")
-        print("\nUse this Trigger ID or manage it in your Composio dashboard.")
+        print("\nUse this Trigger or manage it in your Composio dashboard.")
 
     except Exception as e:
         print(f"\n❌ Error setting up trigger: {e}")
