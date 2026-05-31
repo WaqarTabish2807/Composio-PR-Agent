@@ -26,11 +26,14 @@ async def github_pr_webhook(request: Request, background_tasks: BackgroundTasks)
                 print(f"[Webhook] Ignored trigger slug: {trigger_slug}")
                 
         if pr_data is not None:
+            print(f"[Webhook] Keys inside pr_data: {list(pr_data.keys())}")
             # The action can be found at the 'data' level or inside 'pull_request' depending on exact format
             action = pr_data.get("action") or pr_data.get("pull_request", {}).get("action", "")
             
-            print(f"[Webhook] Pull Request action detected: {action}")
-            if action in ["opened", "synchronize", "reopened"]:
+            print(f"[Webhook] Pull Request action detected: '{action}'")
+            if action in ["opened", "synchronize", "reopened", ""]:
+                if action == "":
+                    print("[Webhook] Action is empty (possibly a test event from the dashboard). Running review agent anyway for testing!")
                 print(f"[Webhook] Triggering agent review thread in background...")
                 background_tasks.add_task(handle_pr_event, pr_data)
                 return {"status": "processing", "message": "PR sync agent triggered in the background."}
