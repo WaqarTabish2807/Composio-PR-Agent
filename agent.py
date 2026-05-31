@@ -6,7 +6,7 @@ print(f"[Debug-Agent] Python Interpreter: {sys.executable}")
 print(f"[Debug-Agent] Composio File: {getattr(composio, '__file__', 'unknown')}")
 from dotenv import load_dotenv
 from composio import Composio
-from anthropic import Anthropic
+from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
@@ -14,14 +14,14 @@ load_dotenv()
 def handle_pr_event(pr_data: dict):
     user_email = os.getenv("USER_EMAIL")
     api_key = os.getenv("COMPOSIO_API_KEY")
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    model_name = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
+    openai_key = os.getenv("OPENAI_API_KEY")
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4o")
 
     if not api_key:
         print("ERROR: COMPOSIO_API_KEY is not set.")
         return
-    if not anthropic_key:
-        print("ERROR: ANTHROPIC_API_KEY is not set.")
+    if not openai_key:
+        print("ERROR: OPENAI_API_KEY is not set.")
         return
     if not user_email:
         print("ERROR: USER_EMAIL is not set.")
@@ -29,7 +29,7 @@ def handle_pr_event(pr_data: dict):
 
     print(f"\n[Agent] Starting agent loop for user: {user_email}")
     composio = Composio(api_key=api_key)
-    anthropic = Anthropic(api_key=anthropic_key)
+    openai_client = OpenAI(api_key=openai_key)
 
     try:
         # Get tools from both toolkits
@@ -81,27 +81,25 @@ def handle_pr_event(pr_data: dict):
     while True:
         print(f"\n--- [Agent Step {step}] ---")
         try:
-            response = anthropic.messages.create(
+            response = openai_client.chat.completions.create(
                 model=model_name,
-                max_tokens=2000,
-                tools=tools,
                 messages=messages,
+                tools=tools,
             )
         except Exception as e:
-            print(f"[Agent] Anthropic API Error: {e}")
+            print(f"[Agent] OpenAI API Error: {e}")
             break
 
-        # Log Claude response details
-        if response.content:
-            text_blocks = [block.text for block in response.content if block.type == "text"]
-            if text_blocks:
-                print(f"Claude Response:\n" + "\n".join(text_blocks))
+        # Log OpenAI response details
+        assistant_message = response.choices[0].message
+        if assistant_message.content:
+            print(f"OpenAI Response:\n{assistant_message.content}")
 
-        if response.stop_reason == "end_turn":
+        if not assistant_message.tool_calls:
             print("\n✅ [Agent] Completed task successfully!")
             break
             
-        print(f"[Agent] Claude triggered tool calls. Executing via Composio...")
+        print(f"[Agent] OpenAI triggered tool calls. Executing via Composio...")
         
         try:
             result = composio.provider.handle_tool_calls(
@@ -120,14 +118,14 @@ def handle_pr_event(pr_data: dict):
             result = json.dumps(result)
 
         # Append assistant response and tool execution result to message history
-        messages.append({"role": "assistant", "content": response.content})
+        messages.append(assistant_message)
         messages.append({"role": "user", "content": result})
         step += 1
 
 if __name__ == "__main__":
     print("Testing agent module initialization and mock loading...")
     load_dotenv()
-    if not os.getenv("COMPOSIO_API_KEY") or not os.getenv("ANTHROPIC_API_KEY"):
-        print("Note: COMPOSIO_API_KEY or ANTHROPIC_API_KEY not configured. Skipping dry run.")
+    if not os.getenv("COMPOSIO_API_KEY") or not os.getenv("OPENAI_API_KEY"):
+        print("Note: COMPOSIO_API_KEY or OPENAI_API_KEY not configured. Skipping dry run.")
     else:
         print("Dry run initialized. Run through webhook server or run this file with a mock payload.")
