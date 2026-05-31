@@ -12,6 +12,7 @@ async def github_pr_webhook(request: Request, background_tasks: BackgroundTasks)
     try:
         payload = await request.json()
         print(f"\n[Webhook] Received incoming webhook payload type: {payload.get('type')}")
+        print(f"[Webhook] Raw payload: {payload}")
         
         event_type = payload.get("type", "")
         pr_data = None

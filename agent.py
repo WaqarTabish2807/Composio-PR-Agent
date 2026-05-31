@@ -50,8 +50,11 @@ def handle_pr_event(pr_data: dict):
     pr_body = pr_data.get("pull_request", {}).get("body") or ""
 
     if not pr_url or not pr_number or not repo_full_name:
-        print("[Agent] ERROR: PR payload is missing critical details.")
-        return
+        print("[Agent] WARNING: PR payload is missing critical details. Falling back to default test repository settings...")
+        pr_url = pr_url or "https://github.com/WaqarTabish2807/Composio-PR-Agent/pull/1"
+        pr_number = pr_number or 1
+        repo_full_name = repo_full_name or "WaqarTabish2807/Composio-PR-Agent"
+        pr_body = pr_body or "Automated Test PR. ENG-42"
 
     prompt = f"""
     A PR was opened: {pr_url}
