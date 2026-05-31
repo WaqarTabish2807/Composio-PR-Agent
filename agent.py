@@ -1,6 +1,9 @@
 import os
 import sys
 import json
+import composio
+print(f"[Debug-Agent] Python Interpreter: {sys.executable}")
+print(f"[Debug-Agent] Composio File: {getattr(composio, '__file__', 'unknown')}")
 from dotenv import load_dotenv
 from composio import Composio
 from anthropic import Anthropic

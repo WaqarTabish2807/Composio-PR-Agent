@@ -1,3 +1,9 @@
+import sys
+import composio
+print(f"\n[Diagnostic] Python Interpreter: {sys.executable}")
+print(f"[Diagnostic] Composio Version: {getattr(composio, '__version__', 'unknown')}")
+print(f"[Diagnostic] Composio File: {getattr(composio, '__file__', 'unknown')}\n")
+
 import uvicorn
 from fastapi import FastAPI
 from webhook import router as webhook_router
