@@ -1,4 +1,4 @@
-composio-core
+composio
 anthropic
 fastapi
 uvicorn
