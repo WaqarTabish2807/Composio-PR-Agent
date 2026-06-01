@@ -44,17 +44,29 @@ def handle_pr_event(pr_data: dict):
         print(f"[Agent] Error fetching tools from Composio: {e}")
         return
 
-    pr_url = pr_data.get("pull_request", {}).get("html_url", "")
-    pr_number = pr_data.get("pull_request", {}).get("number", 0)
-    repo_full_name = pr_data.get("repository", {}).get("full_name", "")
-    pr_body = pr_data.get("pull_request", {}).get("body") or ""
+    # Support both flat Composio webhook payloads and nested GitHub structures
+    pr_url = pr_data.get("url") or pr_data.get("pull_request", {}).get("html_url", "")
+    pr_number = pr_data.get("number") or pr_data.get("pull_request", {}).get("number", 0)
+    pr_body = pr_data.get("description") or pr_data.get("pull_request", {}).get("body") or ""
+
+    # Parse repository full name from PR url or fallback
+    repo_full_name = ""
+    if pr_url and "github.com/" in pr_url:
+        try:
+            parts = pr_url.split("github.com/")[-1].split("/")
+            repo_full_name = f"{parts[0]}/{parts[1]}"
+        except Exception:
+            pass
+
+    if not repo_full_name:
+        repo_full_name = pr_data.get("repository", {}).get("full_name", "")
 
     if not pr_url or not pr_number or not repo_full_name:
         print("[Agent] WARNING: PR payload is missing critical details. Falling back to default test repository settings...")
         pr_url = pr_url or "https://github.com/WaqarTabish2807/Composio-PR-Agent/pull/1"
         pr_number = pr_number or 1
         repo_full_name = repo_full_name or "WaqarTabish2807/Composio-PR-Agent"
-        pr_body = pr_body or "Automated Test PR. ENG-42"
+        pr_body = pr_body or "Automated Test PR. WAQ-1"
 
     prompt = f"""
     A PR was opened: {pr_url}
@@ -65,10 +77,10 @@ def handle_pr_event(pr_data: dict):
     \"\"\"
     
     Do the following in order:
-    1. Get the PR diff using GITHUB_GET_A_PULL_REQUEST for repository '{repo_full_name}' and pull number {pr_number}.
-    2. Write a short structured code review (max 200 words): what looks good, and any concerns.
-    3. Post that review as a comment on PR #{pr_number} in repository '{repo_full_name}'.
-    4. If the PR description/body mentions any Linear issue ID (e.g. ENG-123 or ENG-42), extract the issue key and update that Linear issue status to "In Review".
+    1. Get the list of modified files and their code diffs (patches) using GITHUB_LIST_PULL_REQUESTS_FILES for repository '{repo_full_name}' and pull number {pr_number}. (Note: This action returns the list of files and their unified diff 'patch' contents).
+    2. Write a short structured code review (max 200 words) based on the code diff patches: what looks good, and any concerns.
+    3. Post that review as a comment on PR #{pr_number} in repository '{repo_full_name}' using GITHUB_CREATE_AN_ISSUE_COMMENT or GITHUB_CREATE_A_REVIEW_COMMENT_FOR_A_PULL_REQUEST.
+    4. If the PR description/body mentions any Linear issue ID (e.g. WAQ-1 or ENG-42), extract the issue key and update that Linear issue status to "In Review".
     """
 
     print(f"[Agent] PR Details: Repo={repo_full_name}, PR #{pr_number}")

@@ -22,7 +22,8 @@ async def github_pr_webhook(request: Request, background_tasks: BackgroundTasks)
         elif event_type == "composio.trigger.message":
             trigger_slug = payload.get("metadata", {}).get("trigger_slug", "")
             if trigger_slug == "GITHUB_PULL_REQUEST_EVENT":
-                pr_data = payload.get("data", {}).get("payload", {})
+                # Safely extract from nested payload or fallback to the flat data object itself
+                pr_data = payload.get("data", {}).get("payload") or payload.get("data", {})
             else:
                 print(f"[Webhook] Ignored trigger slug: {trigger_slug}")
                 
